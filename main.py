@@ -146,7 +146,7 @@ grammar = """
 
     if_block: "if" expression "do" code_block "end"
     variable_assignment: name "=" expression
-    print: "print" value
+    print: "print" value | "print" "(" expression ")" 
 
     expression: unary_expression | binary_expression | value | "(" expression ")"
 
@@ -154,13 +154,20 @@ grammar = """
     unary_expression: unary_operator expression
     value: variable_value | string_value | number_value | boolean_value
     variable_value: name
+
     name: NAME
 
     boolean_value: TRUE_VALUE | FALSE_VALUE
-    binary_operator: IS_OP | LT_OP | GT_OP
+    binary_operator: IS_OP | LT_OP | GT_OP | ADD_OP |SUB_OP | MUL_OP |DIV_OP | AND_OP | OR_OP
     IS_OP: "is"
     LT_OP: "<"
     GT_OP: ">"
+    ADD_OP: "+"
+    SUB_OP: "-"
+    MUL_OP: "*"
+    DIV_OP: "/"
+    AND_OP: "and"
+    OR_OP: "or"
     NEG_OP: "!"
     TRUE_VALUE: "true"
     FALSE_VALUE: "false"
@@ -206,7 +213,20 @@ class Interpreter:
             VariableValue: self.visit_variable_value,
             Print: self.visit_print,
             VariableAssignment: self.visit_variable_assignment,
-            Name: self.visit_name
+            Name: self.visit_name,
+            BinaryOperator: self.visit_binary_operator
+        }
+
+        self.operator_lookup_table = {
+            "is": "==",
+            ">": ">",
+            "<": "<",
+            "and": "&&",
+            "or": "||",
+            "+": "+",
+            "-": "-",
+            "*": "*",
+            "/": "/"
         }
 
     def execute(self, ast):
@@ -247,15 +267,13 @@ class Interpreter:
         return self.variable_states[self.visit(node.value)]
 
     def visit_binary_expression(self, node):
-        left = self.visit(node.left_expression)
-        right = self.visit(node.right_expression)
+        left_expression = self.visit(node.left_expression)
+        right_expression = self.visit(node.right_expression)
+        operator = self.visit(node.operator)
+        return eval(f"{left_expression} {operator} {right_expression}")
 
-        if str(node.operator.value) == ">":
-            return left > right
-        elif str(node.operator.value) == "is":
-            return left is right
-        else:
-            return False
+    def visit_binary_operator(self, node):
+        return self.operator_lookup_table[str(node.value)]
 
     def visit_print(self, node):
         print(self.visit(node.value))
@@ -268,16 +286,17 @@ class Interpreter:
 code_example1 = """
     a = 1
     print a
-    a = 2
-    print a
+    a = 3 * (2 + 1) * 2
+    print(a + 1)
 """
 
 code_example2 = """
-    if (3 > 2) is true do
-      print "done lena"
+    a = 1
+    if (a < 2) do
+      print "done lena asdfasdf"
     end
 """
-ast = Parser(grammar).parse(code_example2)
+ast = Parser(grammar).parse(code_example2, debug=True)
 print(ast)
 
 interpreter = Interpreter()
