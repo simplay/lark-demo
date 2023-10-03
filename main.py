@@ -82,7 +82,6 @@ class BooleanValue(_Ast):
 class StringValue(_Ast):
     value: str
 
-
 @dataclass
 class NumberValue(_Ast):
     value: str
@@ -117,6 +116,10 @@ class UnaryExpression(_Statement):
 class Print(_Statement):
     value: Value
 
+@dataclass
+class ToString(_Statement):
+    expression: Expression
+
 
 class ToAst(Transformer):
     # Define extra transformation functions, for rules that don't correspond to an AST class.
@@ -146,9 +149,10 @@ grammar = """
 
     if_block: "if" expression "do" code_block "end"
     variable_assignment: name "=" expression
-    print: "print" value | "print" "(" expression ")" 
+    print: "print" value | "print" "(" expression ")"
+    to_string: "to_string" value | "to_string" "(" expression ")"
 
-    expression: unary_expression | binary_expression | value | "(" expression ")"
+    expression: unary_expression | binary_expression | value | "(" expression ")" | to_string
 
     binary_expression: expression binary_operator expression
     unary_expression: unary_operator expression
@@ -212,6 +216,7 @@ class Interpreter:
             NumberValue: self.visit_number_value,
             VariableValue: self.visit_variable_value,
             Print: self.visit_print,
+            ToString: self.visit_to_string,
             VariableAssignment: self.visit_variable_assignment,
             Name: self.visit_name,
             BinaryOperator: self.visit_binary_operator
@@ -239,6 +244,9 @@ class Interpreter:
     def visit_name(self, node):
         return str(node.name)
 
+    def visit_to_string(self, node):
+        return f"'{self.visit(node.expression)}'"
+
     def visit_variable_assignment(self, node):
         self.variable_states[self.visit(node.name)] = self.visit(node.value)
         return
@@ -258,7 +266,7 @@ class Interpreter:
         return node.value == "true"
 
     def visit_string_value(self, node):
-        return node.value
+        return f"'{node.value}'"
 
     def visit_number_value(self, node):
         return float(node.value)
@@ -266,10 +274,12 @@ class Interpreter:
     def visit_variable_value(self, node):
         return self.variable_states[self.visit(node.value)]
 
+
     def visit_binary_expression(self, node):
         left_expression = self.visit(node.left_expression)
         right_expression = self.visit(node.right_expression)
         operator = self.visit(node.operator)
+
         return eval(f"{left_expression} {operator} {right_expression}")
 
     def visit_binary_operator(self, node):
@@ -296,7 +306,17 @@ code_example2 = """
       print "done lena asdfasdf"
     end
 """
-ast = Parser(grammar).parse(code_example2, debug=True)
+
+
+code_example3 = """
+    b = 2
+    a = 3 * b
+    sum = "sum is " + to_string(b + a)
+    print sum
+    print "foo"
+"""
+
+ast = Parser(grammar).parse(code_example3, debug=True)
 print(ast)
 
 interpreter = Interpreter()
